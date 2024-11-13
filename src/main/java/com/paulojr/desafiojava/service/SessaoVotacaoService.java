@@ -11,6 +11,8 @@ import com.paulojr.desafiojava.repository.SessaoVotacaoRepository;
 import com.paulojr.desafiojava.repository.VotoRepository;
 import javassist.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -46,11 +48,13 @@ public class SessaoVotacaoService {
                 .build();
     }
 
+    @Cacheable(value = "sessaoVotacao", key = "#id") // Cachea o resultado de findById
     public SessaoVotacaoDTO findById(Long id) throws NotFoundException {
         SessaoVotacao sessaoVotacao = sessaoVotacaoRepository.findById(id).orElseThrow(() -> new NotFoundException("Sessão de Votação não encontrada."));
         return sessaoVotacaoMapper.toDTO(sessaoVotacao);
     }
 
+    @Cacheable(value = "resultadoSessaoVotacao", key = "#id") // Cachea o resultado da sessão de votação
     public ResultadoSessaoVotacaoDTO buscarResultadoSessaoVotacao(Long id) throws NotFoundException {
         SessaoVotacaoDTO sessaoVotacaoDTO = findById(id);
         List<Voto> votos = findAllBySessaoVotacaoId(id);
@@ -60,6 +64,21 @@ public class SessaoVotacaoService {
                 .pauta(sessaoVotacaoDTO.getPauta())
                 .votosContra(votos.stream().filter(voto -> !voto.isEhVotoAprovativo()).count())
                 .votosFavoraveis(votos.stream().filter(voto -> voto.isEhVotoAprovativo()).count())
+                .build();
+    }
+
+    @CacheEvict(value = "sessaoVotacao", key = "#id") // Remove o cache de sessão de votação ao deletar
+    public void deleteById(Long id) {
+        sessaoVotacaoRepository.deleteById(id);
+    }
+
+    @CacheEvict(value = "sessaoVotacao", key = "#id") // Limpa o cache se a sessão de votação for atualizada
+    public MessageResponseDTO update(SessaoVotacaoDTO sessaoVotacaoDTO) {
+        SessaoVotacao sessaoVotacaoToUpdate = sessaoVotacaoMapper.toModel(sessaoVotacaoDTO);
+        SessaoVotacao sessaoVotacaoUpdated = sessaoVotacaoRepository.save(sessaoVotacaoToUpdate);
+
+        return MessageResponseDTO.builder()
+                .message("Sessão de Votação atualizada com ID:" + sessaoVotacaoUpdated.getId())
                 .build();
     }
 
