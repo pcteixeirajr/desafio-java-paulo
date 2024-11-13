@@ -12,4 +12,6 @@ import lombok.NoArgsConstructor;
 public class PautaDTO {
     private Long id;
     private String nome;
+    private String titulo;
+    private String descricao;
 }

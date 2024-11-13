@@ -8,7 +8,7 @@
 		<version>2.2.8.RELEASE</version>
 		<relativePath/>
 	</parent>
-	<groupId>com.jhemeson</groupId>
+	<groupId>com.paulojr</groupId>
 	<artifactId>desafio-java-back</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>desafio-java-back</name>
