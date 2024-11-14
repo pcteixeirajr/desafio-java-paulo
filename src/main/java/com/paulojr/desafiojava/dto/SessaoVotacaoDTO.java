@@ -1,5 +1,6 @@
 package com.paulojr.desafiojava.dto;
 
+import com.paulojr.desafiojava.enuns.TipoVoto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,4 +17,6 @@ public class SessaoVotacaoDTO {
     private PautaDTO pauta;
     private Integer tempoDeAberturaEmSegundos;
     private Date dataHoraAbertura;
+    private TipoVoto tipoVoto;
+
 }

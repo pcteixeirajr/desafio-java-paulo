@@ -13,8 +13,11 @@ import com.paulojr.desafiojava.mapper.VotoMapper;
 import com.paulojr.desafiojava.repository.VotoRepository;
 import javassist.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Service
@@ -45,6 +48,7 @@ public class VotoService {
             Voto votoToCreate = votoMapper.toModel(votoDTO);
             Voto votoCreated = votoRepository.save(votoToCreate);
 
+            // Evitar cache de criação, pois ele não é necessário para consultas futuras.
             return MessageResponseDTO.builder()
                     .message("Voto adicionado")
                     .build();
@@ -53,6 +57,11 @@ public class VotoService {
         }
     }
 
+    @Cacheable(value = "voto", key = "#cpf + '-' + #sessaoVotacaoId") // Cachea a consulta do voto por CPF e ID da Sessão
+    public VotoDTO findBySessaoVotacaoIdAndAssociado(String cpf, Long sessaoVotacaoId) {
+        Voto voto = votoRepository.findBySessaoVotacao_IdAndAssociado(sessaoVotacaoId, cpf);
+        return votoMapper.toDTO(voto);
+    }
 
     private void validaStatusSessao(VotoDTO votoDTO) throws SessaoExpiradaException {
         Date deadlineParaVotacao = votoDTO.getSessaoVotacao().getDataHoraAbertura();
@@ -64,15 +73,22 @@ public class VotoService {
     }
 
     private void validaSeJaVotou(VotoDTO votoDTO) throws VotoExistenteException {
+
         VotoDTO votoComputado = findBySessaoVotacaoIdAndAssociado(votoDTO.getAssociado(), votoDTO.getSessaoVotacao().getId());
 
         if (votoComputado != null && votoComputado.getId() != null) {
-            throw new VotoExistenteException(votoDTO.getAssociado(), votoDTO.getSessaoVotacao().getId());
-        }
-    }
+            LocalDateTime dataHoraVoto = LocalDateTime.now();
+            String mensagemUsuario = "Voto já registrado";
+            String mensagemTecnica = String.format("O CPF %s tentou votar mais de uma vez na sessão %d às %s",
+                    votoDTO.getAssociado(), votoDTO.getSessaoVotacao().getId(), dataHoraVoto);
 
-    public VotoDTO findBySessaoVotacaoIdAndAssociado(String cpf, Long sessaoVotacaoId) {
-        Voto voto = votoRepository.findBySessaoVotacao_IdAndAssociado(sessaoVotacaoId, cpf);
-        return votoMapper.toDTO(voto);
+            throw new VotoExistenteException(
+                    votoDTO.getAssociado(),
+                    votoDTO.getSessaoVotacao().getId(),
+                    dataHoraVoto,
+                    mensagemUsuario,
+                    mensagemTecnica
+            );
+        }
     }
 }

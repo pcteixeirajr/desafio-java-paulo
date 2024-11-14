@@ -14,4 +14,6 @@ public class VotoDTO {
     private SessaoVotacaoDTO sessaoVotacao;
     private String associado;
     private boolean ehVotoAprovativo;
+    private boolean EhVotoAprovativo;
+
 }

@@ -1,109 +1,82 @@
 package com.paulojr.desafiojava.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.paulojr.desafiojava.dto.ComandoAbrirSessaoVotacaoDTO;
 import com.paulojr.desafiojava.dto.MessageResponseDTO;
 import com.paulojr.desafiojava.dto.ResultadoSessaoVotacaoDTO;
-import com.paulojr.desafiojava.entity.Pauta;
-import com.paulojr.desafiojava.entity.SessaoVotacao;
-import com.paulojr.desafiojava.entity.Voto;
-import com.paulojr.desafiojava.repository.PautaRepository;
-import com.paulojr.desafiojava.repository.SessaoVotacaoRepository;
-import com.paulojr.desafiojava.repository.VotoRepository;
-import org.assertj.core.api.Assertions;
+import com.paulojr.desafiojava.service.SessaoVotacaoService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.mockito.BDDMockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.junit4.SpringRunner;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class SessaoVotacaoControllerTest {
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(SessaoVotacaoController.class)
+public class SessaoVotacaoControllerTest {
 
     @Autowired
-    private TestRestTemplate restTemplate;
+    private MockMvc mockMvc;
+
     @MockBean
-    private SessaoVotacaoRepository sessaoVotacaoRepository;
-    @MockBean
-    private PautaRepository pautaRepository;
-    @MockBean
-    private VotoRepository votoRepository;
+    private SessaoVotacaoService sessaoVotacaoService;
 
-    @Test
-    void abrirSessao() {
-        Pauta pauta = new Pauta(999L,"Pauta teste");
+    @Autowired
+    private ObjectMapper objectMapper;
 
-        ComandoAbrirSessaoVotacaoDTO comandoAbrirSessaoVotacaoDTO = new ComandoAbrirSessaoVotacaoDTO().builder()
-                .pauta(pauta.getId())
-                .tempoDeAberturaEmSegundos(1000)
-                .build();
+    private ComandoAbrirSessaoVotacaoDTO comandoAbrirSessaoVotacaoDTO;
+    private MessageResponseDTO messageResponseDTO;
+    private ResultadoSessaoVotacaoDTO resultadoSessaoVotacaoDTO;
 
-        SessaoVotacao sessaoVotacao = new SessaoVotacao().builder()
-                .dataHoraAbertura(new Date())
-                .pauta(pauta)
-                .tempoDeAberturaEmSegundos(1000)
-                .build();
+    @BeforeEach
+    public void setup() {
 
-        BDDMockito.when(pautaRepository.save(pauta)).thenReturn(pauta);
-        BDDMockito.when(pautaRepository.findById(pauta.getId())).thenReturn(java.util.Optional.of(pauta));
-        BDDMockito.when(sessaoVotacaoRepository.save(sessaoVotacao)).thenReturn(sessaoVotacao);
+        comandoAbrirSessaoVotacaoDTO = new ComandoAbrirSessaoVotacaoDTO();
+        comandoAbrirSessaoVotacaoDTO.setPautaId(1L);
+        comandoAbrirSessaoVotacaoDTO.setDuracao(60);
 
-        ResponseEntity<MessageResponseDTO> response = restTemplate
-                .postForEntity("/api/v1/sessao", comandoAbrirSessaoVotacaoDTO, MessageResponseDTO.class);
+        messageResponseDTO = new MessageResponseDTO();
+        messageResponseDTO.setMessage("Sessão de votação aberta com sucesso.");
 
-        Assertions.assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        resultadoSessaoVotacaoDTO = new ResultadoSessaoVotacaoDTO();
+        resultadoSessaoVotacaoDTO.setSessaoId(1L);
+        resultadoSessaoVotacaoDTO.setTotalVotos(10L);
+        resultadoSessaoVotacaoDTO.setVotosFavoraveis(7L);
+        resultadoSessaoVotacaoDTO.setVotosContra(3L);
     }
 
     @Test
-    void buscarResultadoSessaoVotacao() {
+    public void testAbrirSessao() throws Exception {
 
-        Pauta pauta = new Pauta(999L,"Pauta teste");
-        SessaoVotacao sessaoVotacao = new SessaoVotacao().builder()
-                .id(1L)
-                .dataHoraAbertura(new Date())
-                .pauta(pauta)
-                .tempoDeAberturaEmSegundos(1000)
-                .build();
+        when(sessaoVotacaoService.create(any(ComandoAbrirSessaoVotacaoDTO.class))).thenReturn(messageResponseDTO);
 
-        Voto voto1 = new Voto().builder()
-                .id(1L)
-                .associado("05676307307")
-                .sessaoVotacao(sessaoVotacao)
-                .ehVotoAprovativo(true)
-                .build();
+        mockMvc.perform(post("/api/v1/sessao")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(comandoAbrirSessaoVotacaoDTO)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Sessão de votação aberta com sucesso."));
+    }
 
-        Voto voto2 = new Voto().builder()
-                .id(2L)
-                .associado("05676307307")
-                .sessaoVotacao(sessaoVotacao)
-                .ehVotoAprovativo(true)
-                .build();
+    @Test
+    public void testBuscarResultadoSessaoVotacao() throws Exception {
 
-        Voto voto3 = new Voto().builder()
-                .id(3L)
-                .associado("05676307307")
-                .sessaoVotacao(sessaoVotacao)
-                .ehVotoAprovativo(false)
-                .build();
+        when(sessaoVotacaoService.buscarResultadoSessaoVotacao(anyLong())).thenReturn(resultadoSessaoVotacaoDTO);
 
-        List<Voto> listaVotos = new ArrayList<>();
-        listaVotos.add(voto1);
-        listaVotos.add(voto2);
-        listaVotos.add(voto3);
-
-        BDDMockito.when(sessaoVotacaoRepository.findById(sessaoVotacao.getId())).thenReturn(java.util.Optional.of(sessaoVotacao));
-        BDDMockito.when(votoRepository.findAllBySessaoVotacao_Id(sessaoVotacao.getId())).thenReturn(listaVotos);
-
-        ResponseEntity<ResultadoSessaoVotacaoDTO> response = restTemplate
-                .getForEntity("/api/v1/sessao/1/resultado", ResultadoSessaoVotacaoDTO.class);
-
-        Assertions.assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        mockMvc.perform(get("/api/v1/sessao/1/resultado")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessaoId").value(1L))
+                .andExpect(jsonPath("$.totalVotos").value(10))
+                .andExpect(jsonPath("$.votosFavoraveis").value(7))
+                .andExpect(jsonPath("$.votosContra").value(3));
     }
 }

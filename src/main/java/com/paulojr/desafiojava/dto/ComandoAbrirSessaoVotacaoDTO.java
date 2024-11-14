@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ComandoAbrirSessaoVotacaoDTO {
+    private Long pautaId;
+    private Integer duracao;
     private Long pauta;
-    private Integer tempoDeAberturaEmSegundos;
 }

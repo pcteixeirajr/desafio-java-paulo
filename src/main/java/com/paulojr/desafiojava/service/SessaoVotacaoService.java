@@ -11,6 +11,8 @@ import com.paulojr.desafiojava.repository.SessaoVotacaoRepository;
 import com.paulojr.desafiojava.repository.VotoRepository;
 import javassist.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -31,10 +33,9 @@ public class SessaoVotacaoService {
     }
 
     public MessageResponseDTO create(ComandoAbrirSessaoVotacaoDTO comandoAbrirSessaoVotacaoDTO) throws NotFoundException {
-
-        SessaoVotacaoDTO sessaoVotacaoDTO = new SessaoVotacaoDTO().builder()
+        SessaoVotacaoDTO sessaoVotacaoDTO = SessaoVotacaoDTO.builder()
                 .pauta(pautaService.findById(comandoAbrirSessaoVotacaoDTO.getPauta()))
-                .tempoDeAberturaEmSegundos(decideTempoDeAberturaEmSegundos(comandoAbrirSessaoVotacaoDTO.getTempoDeAberturaEmSegundos()))
+                .tempoDeAberturaEmSegundos(decideTempoDeAberturaEmSegundos(comandoAbrirSessaoVotacaoDTO.getDuracao()))
                 .dataHoraAbertura(new Date())
                 .build();
 
@@ -46,20 +47,43 @@ public class SessaoVotacaoService {
                 .build();
     }
 
+    @Cacheable(value = "sessaoVotacao", key = "#id")
     public SessaoVotacaoDTO findById(Long id) throws NotFoundException {
-        SessaoVotacao sessaoVotacao = sessaoVotacaoRepository.findById(id).orElseThrow(() -> new NotFoundException("Sessão de Votação não encontrada."));
+        SessaoVotacao sessaoVotacao = sessaoVotacaoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Sessão de Votação não encontrada."));
         return sessaoVotacaoMapper.toDTO(sessaoVotacao);
     }
 
+    @Cacheable(value = "resultadoSessaoVotacao", key = "#id")
     public ResultadoSessaoVotacaoDTO buscarResultadoSessaoVotacao(Long id) throws NotFoundException {
         SessaoVotacaoDTO sessaoVotacaoDTO = findById(id);
         List<Voto> votos = findAllBySessaoVotacaoId(id);
 
-        return new ResultadoSessaoVotacaoDTO().builder()
-                .id(id)
+        ResultadoSessaoVotacaoDTO resultado = ResultadoSessaoVotacaoDTO.builder()
+                .sessaoId(id)
                 .pauta(sessaoVotacaoDTO.getPauta())
-                .votosContra(votos.stream().filter(voto -> !voto.isEhVotoAprovativo()).count())
-                .votosFavoraveis(votos.stream().filter(voto -> voto.isEhVotoAprovativo()).count())
+                .totalVotos((long) votos.size())
+                .votosFavoraveis(votos.stream().filter(Voto::isEhVotoAprovativo).count())  // Usando votosFavoraveis
+                .votosContra(votos.stream().filter(voto -> !voto.isEhVotoAprovativo()).count())  // Usando votosContra
+                .build();
+
+        resultado.setResultadoFinal(resultado.getVotosFavoraveis() > resultado.getVotosContra() ? "Aprovado" : "Rejeitado");
+
+        return resultado;
+    }
+
+    @CacheEvict(value = "sessaoVotacao", key = "#id")
+    public void deleteById(Long id) {
+        sessaoVotacaoRepository.deleteById(id);
+    }
+
+    @CacheEvict(value = "sessaoVotacao", key = "#id")
+    public MessageResponseDTO update(SessaoVotacaoDTO sessaoVotacaoDTO) {
+        SessaoVotacao sessaoVotacaoToUpdate = sessaoVotacaoMapper.toModel(sessaoVotacaoDTO);
+        SessaoVotacao sessaoVotacaoUpdated = sessaoVotacaoRepository.save(sessaoVotacaoToUpdate);
+
+        return MessageResponseDTO.builder()
+                .message("Sessão de Votação atualizada com ID:" + sessaoVotacaoUpdated.getId())
                 .build();
     }
 
