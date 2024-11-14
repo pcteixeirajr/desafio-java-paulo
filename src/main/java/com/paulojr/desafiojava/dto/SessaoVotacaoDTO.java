@@ -18,4 +18,5 @@ public class SessaoVotacaoDTO {
     private Integer tempoDeAberturaEmSegundos;
     private Date dataHoraAbertura;
     private TipoVoto tipoVoto;
+
 }

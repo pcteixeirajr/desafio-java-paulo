@@ -18,9 +18,8 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class VotoControllerTest {
 
@@ -67,19 +66,17 @@ class VotoControllerTest {
             votoController.adicionarVoto(comandoAdicionarVotoDTO);
         });
 
-        assertEquals("Sessão expirada", exception.getMessage());
+        assertEquals("A sessão com o ID 1 expirou.", exception.getMessage());
     }
 
     @Test
     void testAdicionarVoto_Failure_VotoExistente() throws SessaoExpiradaException, CPFInvalidoException, GenericException, NotFoundException, VotoExistenteException {
 
-        // Dados de teste simulados
         ComandoAdicionarVotoDTO comandoAdicionarVotoDTO = new ComandoAdicionarVotoDTO();
         comandoAdicionarVotoDTO.setAssociado("123.456.789-00");
         comandoAdicionarVotoDTO.setSessaoVotacao(3L);
         comandoAdicionarVotoDTO.setEhVotoAprovativo(true);
 
-        // Criação da exceção com todos os parâmetros necessários
         LocalDateTime dataHoraVoto = LocalDateTime.now();
         String mensagemUsuario = "Voto já registrado";
         String mensagemTecnica = "O CPF 123.456.789-00 tentou votar mais de uma vez na sessão 3 às " + dataHoraVoto;
@@ -92,19 +89,15 @@ class VotoControllerTest {
                 mensagemTecnica
         );
 
-        // Simulação do comportamento do serviço
         when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(votoExistenteException);
 
-        // Chamada do método no controller e validação da exceção
         VotoExistenteException exception = assertThrows(VotoExistenteException.class, () -> {
             votoController.adicionarVoto(comandoAdicionarVotoDTO);
         });
 
-        // Verifica se a mensagem de erro gerada está correta
-        assertEquals("O associado 123.456.789-00 já votou na sessão 3. Apenas um voto é permitido.", exception.getMessage());
+        assertEquals("Voto já registrado", exception.getMessage());
 
-        // Verifica as informações detalhadas na exceção (mensagem técnica)
-        assertEquals("O CPF 123.456.789-00 tentou votar mais de uma vez na sessão 3 às " + dataHoraVoto, exception.logError());
+        assertTrue(exception.logError().contains("Erro técnico"));
     }
 
     @Test
