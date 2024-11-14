@@ -62,8 +62,9 @@ public class SessaoVotacaoService {
         return new ResultadoSessaoVotacaoDTO().builder()
                 .id(id)
                 .pauta(sessaoVotacaoDTO.getPauta())
-                .votosContra(votos.stream().filter(voto -> !voto.isEhVotoAprovativo()).count())
-                .votosFavoraveis(votos.stream().filter(voto -> voto.isEhVotoAprovativo()).count())
+                .totalVotos(votos.stream().filter(voto -> !voto.isEhVotoAprovativo()).count())
+                .qtdVotosAprovativos(votos.stream().filter(voto -> voto.isEhVotoAprovativo()).count())
+                .qtdVotosRejeitivos(votos.stream().filter(voto -> voto.isEhVotosRejeitivos()).count())
                 .build();
     }
 

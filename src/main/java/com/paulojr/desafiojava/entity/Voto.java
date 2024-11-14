@@ -26,4 +26,7 @@ public class Voto {
 
     @Column(nullable = false)
     private boolean ehVotoAprovativo;
+
+    @Column(nullable = false)
+    private boolean ehVotosRejeitivos;
 }

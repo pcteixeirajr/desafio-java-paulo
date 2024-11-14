@@ -16,6 +16,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.time.LocalDateTime;
+
 import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,7 +61,7 @@ class VotoControllerTest {
     @Test
     void testAdicionarVoto_Failure_SessaoExpirada() throws SessaoExpiradaException, VotoExistenteException, CPFInvalidoException, GenericException, NotFoundException {
 
-        when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(new SessaoExpiradaException(5L));
+        when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(new SessaoExpiradaException(1L));
 
         SessaoExpiradaException exception = assertThrows(SessaoExpiradaException.class, () -> {
             votoController.adicionarVoto(comandoAdicionarVotoDTO);
@@ -69,28 +71,66 @@ class VotoControllerTest {
     }
 
     @Test
-    void testAdicionarVoto_Failure_VotoExistente() throws SessaoExpiradaException, VotoExistenteException, CPFInvalidoException, GenericException, NotFoundException {
+    void testAdicionarVoto_Failure_VotoExistente() throws SessaoExpiradaException, CPFInvalidoException, GenericException, NotFoundException, VotoExistenteException {
 
-        when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(new VotoExistenteException("123.456.789-00", 3L));
+        // Dados de teste simulados
+        ComandoAdicionarVotoDTO comandoAdicionarVotoDTO = new ComandoAdicionarVotoDTO();
+        comandoAdicionarVotoDTO.setAssociado("123.456.789-00");
+        comandoAdicionarVotoDTO.setSessaoVotacao(3L);
+        comandoAdicionarVotoDTO.setEhVotoAprovativo(true);
 
+        // Criação da exceção com todos os parâmetros necessários
+        LocalDateTime dataHoraVoto = LocalDateTime.now();
+        String mensagemUsuario = "Voto já registrado";
+        String mensagemTecnica = "O CPF 123.456.789-00 tentou votar mais de uma vez na sessão 3 às " + dataHoraVoto;
+
+        VotoExistenteException votoExistenteException = new VotoExistenteException(
+                "123.456.789-00",
+                3L,
+                dataHoraVoto,
+                mensagemUsuario,
+                mensagemTecnica
+        );
+
+        // Simulação do comportamento do serviço
+        when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(votoExistenteException);
+
+        // Chamada do método no controller e validação da exceção
         VotoExistenteException exception = assertThrows(VotoExistenteException.class, () -> {
             votoController.adicionarVoto(comandoAdicionarVotoDTO);
         });
 
-        assertEquals("Voto já registrado", exception.getMessage());
+        // Verifica se a mensagem de erro gerada está correta
+        assertEquals("O associado 123.456.789-00 já votou na sessão 3. Apenas um voto é permitido.", exception.getMessage());
+
+        // Verifica as informações detalhadas na exceção (mensagem técnica)
+        assertEquals("O CPF 123.456.789-00 tentou votar mais de uma vez na sessão 3 às " + dataHoraVoto, exception.logError());
     }
 
     @Test
     void testAdicionarVoto_Failure_CPFInvalido() throws SessaoExpiradaException, VotoExistenteException, CPFInvalidoException, GenericException, NotFoundException {
 
-        when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(new CPFInvalidoException("CPF inválido"));
+        String cpfInvalido = "12345678900";
+
+        ComandoAdicionarVotoDTO comandoAdicionarVotoDTO = new ComandoAdicionarVotoDTO();
+        comandoAdicionarVotoDTO.setAssociado(cpfInvalido);
+
+        when(votoService.create(comandoAdicionarVotoDTO)).thenThrow(new CPFInvalidoException(cpfInvalido));
 
         CPFInvalidoException exception = assertThrows(CPFInvalidoException.class, () -> {
             votoController.adicionarVoto(comandoAdicionarVotoDTO);
         });
 
-        assertEquals("CPF inválido", exception.getMessage());
+        assertEquals("O CPF " + cpfInvalido + " é inválido.", exception.getMessage());
+
+        String expectedFullErrorDetails = "Código de erro: CPF_INVALIDO\nMensagem: O CPF " + cpfInvalido + " é inválido.\nCPF inválido: " + cpfInvalido;
+        assertEquals(expectedFullErrorDetails, exception.getFullErrorDetails());
+
+        assertEquals(cpfInvalido, exception.getCpf());
+
+        assertEquals("CPF_INVALIDO", exception.getErrorCode());
     }
+
 
     @Test
     void testAdicionarVoto_Failure_GenericException() throws SessaoExpiradaException, VotoExistenteException, CPFInvalidoException, GenericException, NotFoundException {

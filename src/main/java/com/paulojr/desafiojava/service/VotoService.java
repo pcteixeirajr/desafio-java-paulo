@@ -17,6 +17,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Service
@@ -72,16 +73,22 @@ public class VotoService {
     }
 
     private void validaSeJaVotou(VotoDTO votoDTO) throws VotoExistenteException {
+
         VotoDTO votoComputado = findBySessaoVotacaoIdAndAssociado(votoDTO.getAssociado(), votoDTO.getSessaoVotacao().getId());
 
         if (votoComputado != null && votoComputado.getId() != null) {
-            throw new VotoExistenteException(votoDTO.getAssociado(), votoDTO.getSessaoVotacao().getId());
-        }
-    }
+            LocalDateTime dataHoraVoto = LocalDateTime.now();
+            String mensagemUsuario = "Voto já registrado";
+            String mensagemTecnica = String.format("O CPF %s tentou votar mais de uma vez na sessão %d às %s",
+                    votoDTO.getAssociado(), votoDTO.getSessaoVotacao().getId(), dataHoraVoto);
 
-    // Método para limpar o cache quando o voto for removido
-    @CacheEvict(value = "voto", key = "#cpf + '-' + #sessaoVotacaoId")
-    public void deleteVoto(String cpf, Long sessaoVotacaoId) {
-        votoRepository.deleteBySessaoVotacao_IdAndAssociado(sessaoVotacaoId, cpf);
+            throw new VotoExistenteException(
+                    votoDTO.getAssociado(),
+                    votoDTO.getSessaoVotacao().getId(),
+                    dataHoraVoto,
+                    mensagemUsuario,
+                    mensagemTecnica
+            );
+        }
     }
 }
